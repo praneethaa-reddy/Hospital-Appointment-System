@@ -90,89 +90,96 @@ typedef struct {
 
 ## 4. Program Flowchart and Architectural Diagrams
 
-### Architectural Flowchart
+### 4.1 Architectural Flowchart
 
-```text
-       +---------------------------------------------+
-       |                  Start                      |
-       +---------------------------------------------+
-                              |
-                              v
-       +---------------------------------------------+
-       |   Initialize Date via time.h Clock          |
-       |   Load Binary Files (patients, doctors,     |
-       |   appointments, bills, waiting queue)       |
-       +---------------------------------------------+
-                              |
-                              v
-       +---------------------------------------------+
-       |          User Authentication                |
-       |        (3 Attempts allowed)                 |
-       +---------------------------------------------+
-                 |                         |
-         [Success]                 [Failure 3x]
-                 |                         |
-                 v                         v
-       +-----------------------+     +---------------+
-       | Show Today's Schedule |     | Exit Program  |
-       |       Dashboard       |     +---------------+
-       +-----------------------+
-                 |
-                 v
-       +-----------------------+
-+----->|       Main Menu       |<-----------------------+
-|      +-----------------------+                        |
-|                 |                                     |
-|    +------------+------------+                        |
-|    |  Select Option (1 - 10) |                        |
-|    +-------------------------+                        |
-|                 |                                     |
-|    +------------+---------------------------+         |
-|    |                                        |         |
-|    v                                        v         |
-| [Patient / Doctor Ops]            [Appointment Ops]   |
-| - Register Patient                - Book Appointment  |
-| - Search Patient                  - Clash Detection   |
-| - Update Patient                  - Emergency Booking |
-| - Add / List Doctors              - Cancel / Promote  |
-| - Deactivate Doctor               - Reschedule        |
-|    |                                        |         |
-|    |   +------------------------------------+         |
-|    |   |                                              |
-|    v   v                                              |
-| [Billing & Reports]                                   |
-| - Generate Bill (10% senior, 5% repeat)               |
-| - Analytical Reports                                  |
-| - Timestamped Backups                                 |
-|    |                                                  |
-|    +--------------------------------------------------+
+```mermaid
+flowchart TD
+    subgraph S1 ["Phase 1: Startup & Authentication"]
+        Start(["Application Startup"]) --> Init["Read Clock via time.h<br/>Load Storage Files"]
+        Init --> Auth{"Authenticate Credentials<br/>(data/users.txt)"}
+        Auth -- "Failed 3x" --> Denied(["Exit Program"])
+        Auth -- "Success" --> Dash["Schedule Dashboard<br/>Appointments Today, Waiting Queue, Slots"]
+    end
+
+    subgraph S2 ["Phase 2: Main Menu & Modular Operations"]
+        Dash --> Menu{"Main Menu Selection"}
+        
+        Menu -->|"Options 1, 2"| PatientMod["Patient Management<br/>- Register with Validation<br/>- Search by ID, Name, Phone<br/>- Comprehensive Visit History"]
+        Menu -->|"Option 3"| DoctorMod["Doctor Management<br/>- Add Doctor & Days Mask<br/>- Filter by Specialization<br/>- Deactivation Integrity Check"]
+        Menu -->|"Options 4, 5, 6, 7, 8"| ApptMod["Appointments & Queue<br/>- Clash-Free Routine Booking<br/>- Emergency Priority Scheduling<br/>- Cancel with Waiting Promotion<br/>- Reschedule & Daily Views"]
+        Menu -->|"Option 9"| BillingMod["Billing Management<br/>- Senior Citizen 10% (Age 60+)<br/>- Repeat Visit 5% (Within 7 Days)<br/>- Date / Patient Bill History"]
+        Menu -->|"Option 10"| ReportMod["Reports & Utilities<br/>- Daily, Weekly, Monthly Stats<br/>- Busiest Doctor and Weekday<br/>- Timestamped Data Backups"]
+        Menu -->|"Option 0"| ExitApp(["Exit Application"])
+    end
+
+    subgraph S3 ["Phase 3: Persistence Layer"]
+        PatientMod --> FileSync["Immediate Binary Persistence<br/>patients.dat | doctors.dat | appointments.dat | bills.dat | waiting.dat"]
+        DoctorMod --> FileSync
+        ApptMod --> FileSync
+        BillingMod --> FileSync
+        ReportMod --> FileSync
+    end
+
+    FileSync -.->|"Loop Back"| Menu
 ```
 
-### Queue Management and Slot Promotion Logic
+### 4.2 Queue Management and Slot Promotion Logic
 
-```text
-       [ Appointment Cancellation Triggered ]
-                         |
-                         v
-       [ Mark Appointment Status as STATUS_CANCELLED ]
-       [ Write updated record to appointments.dat     ]
-                         |
-                         v
-       [ Scan data/waiting.dat for Doctor ID and Date ]
-                         |
-             +-----------+-----------+
-             |                       |
-       [Match Found]           [No Waiting Entries]
-             |                       |
-             v                       v
-     [ Dequeue Candidate ]      [ Slot Remains FREE ]
-     [ Book Freed Slot   ]           |
-     [ Shift Queue Array ]           v
-     [ Save waiting.dat  ]        [ Done ]
-             |
-             v
-     [ Print Notification ]
-     [ Patient Auto-Booked ]
+```mermaid
+flowchart TD
+    CancelReq(["Cancel Appointment Requested"]) --> FetchAppt["Load Appointment Record from appointments.dat"]
+    FetchAppt --> VerifyStatus{"Is Current Status<br/>STATUS_BOOKED?"}
+
+    VerifyStatus -- "No" --> RejectCancel["Reject Cancellation Request<br/>(Only Active Booked Appts Can Be Cancelled)"] --> EndCancel(["End Process"])
+
+    VerifyStatus -- "Yes" --> MarkCancel["Update Status to STATUS_CANCELLED<br/>Persist to appointments.dat"]
+
+    MarkCancel --> ReadQueue["Read Queue from data/waiting.dat<br/>Filter for Matching Doctor ID and Date"]
+
+    ReadQueue --> QueueCheck{"Eligible Candidate<br/>Found in Queue?"}
+
+    QueueCheck -- "None" --> SlotFree["Freed Slot Marked as Available<br/>No Promotion Required"] --> EndCancel
+
+    QueueCheck -- "Candidate Found" --> Prioritize["Select Candidate with Highest Priority:<br/>1. TYPE_EMERGENCY First<br/>2. Oldest Registration (FCFS)"]
+
+    Prioritize --> Dequeue["Dequeue Candidate from Queue<br/>Shift Remaining Queue Elements"]
+    Dequeue --> SaveQueue["Persist Updated Queue to waiting.dat"]
+
+    SaveQueue --> AutoBook["Execute bookAppointment()<br/>Assign Freed Slot to Candidate"]
+    AutoBook --> SaveAppt["Persist New Booking to appointments.dat"]
+
+    SaveAppt --> Notify["Display Promotion Notification:<br/>Waiting Candidate Automatically Booked"]
+    Notify --> EndCancel
+```
+
+### 4.3 Appointment Booking and Clash Detection Logic
+
+```mermaid
+flowchart TD
+    BookReq(["Book Appointment Request"]) --> InputDetails["Select Patient ID, Doctor ID,<br/>and Target Consultation Date"]
+
+    InputDetails --> DateCheck{"Date Rule Check:<br/>1. Not in Past?<br/>2. Within 30 Days?<br/>3. Doctor Works on Weekday?"}
+
+    DateCheck -- "Failed Rule" --> RejectDate["Reject Booking:<br/>Display Date Rule Error"] --> Abort(["Abort Booking"])
+
+    DateCheck -- "Passed" --> LoadSchedule["Load Daily Schedule for Doctor<br/>Display Slots 1 to 16 with Status"]
+
+    LoadSchedule --> SlotAvail{"Are All Slots<br/>Booked for Doctor?"}
+
+    SlotAvail -- "All 16 Booked" --> PromptQueue{"Offer Waiting List Entry?"}
+    PromptQueue -- "Accepted" --> AddWait["Append Entry to data/waiting.dat<br/>(Emergency priority at head)"] --> DoneWait(["Waiting List Enqueued"])
+    PromptQueue -- "Declined" --> Abort
+
+    SlotAvail -- "Free Slots Exist" --> SelectSlot["User Selects Slot Number (1 - 16)"]
+
+    SelectSlot --> CheckDocClash{"Doctor Slot Check:<br/>Is Slot Already Booked?"}
+    CheckDocClash -- "Booked" --> RejectDoc["Reject: Double Booking Prevented"] --> Abort
+
+    CheckDocClash -- "Free" --> CheckPatClash{"Patient Conflict Check:<br/>Patient Already Booked in Slot?"}
+    CheckPatClash -- "Conflict" --> RejectPat["Reject: Concurrent Booking Prevented"] --> Abort
+
+    CheckPatClash -- "No Conflict" --> ConfirmBook["Create Appointment (STATUS_BOOKED)<br/>Persist to data/appointments.dat"]
+    ConfirmBook --> Success(["Booking Successful<br/>Display Appointment ID"])
 ```
 
 ## 5. Console User Interface and Workflow Captures

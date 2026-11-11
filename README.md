@@ -29,6 +29,39 @@ The application is engineered using modular programming principles with clean se
 - `src/main.c`: Application entry point, multi-attempt credential authentication, live operational schedule dashboard, and main dispatch loop.
 - `src/seed_data.c`: Standalone utility to populate sample doctors, patients, appointments, waiting queue entries, and consultation bills.
 
+### Architectural Flowchart
+
+```mermaid
+flowchart TD
+    subgraph S1 ["Phase 1: Startup & Authentication"]
+        Start(["Application Startup"]) --> Init["Read Clock via time.h<br/>Load Storage Files"]
+        Init --> Auth{"Authenticate Credentials<br/>(data/users.txt)"}
+        Auth -- "Failed 3x" --> Denied(["Exit Program"])
+        Auth -- "Success" --> Dash["Schedule Dashboard<br/>Appointments Today, Waiting Queue, Slots"]
+    end
+
+    subgraph S2 ["Phase 2: Main Menu & Modular Operations"]
+        Dash --> Menu{"Main Menu Selection"}
+        
+        Menu -->|"Options 1, 2"| PatientMod["Patient Management<br/>- Register with Validation<br/>- Search by ID, Name, Phone<br/>- Comprehensive Visit History"]
+        Menu -->|"Option 3"| DoctorMod["Doctor Management<br/>- Add Doctor & Days Mask<br/>- Filter by Specialization<br/>- Deactivation Integrity Check"]
+        Menu -->|"Options 4, 5, 6, 7, 8"| ApptMod["Appointments & Queue<br/>- Clash-Free Routine Booking<br/>- Emergency Priority Scheduling<br/>- Cancel with Waiting Promotion<br/>- Reschedule & Daily Views"]
+        Menu -->|"Option 9"| BillingMod["Billing Management<br/>- Senior Citizen 10% (Age 60+)<br/>- Repeat Visit 5% (Within 7 Days)<br/>- Date / Patient Bill History"]
+        Menu -->|"Option 10"| ReportMod["Reports & Utilities<br/>- Daily, Weekly, Monthly Stats<br/>- Busiest Doctor and Weekday<br/>- Timestamped Data Backups"]
+        Menu -->|"Option 0"| ExitApp(["Exit Application"])
+    end
+
+    subgraph S3 ["Phase 3: Persistence Layer"]
+        PatientMod --> FileSync["Immediate Binary Persistence<br/>patients.dat | doctors.dat | appointments.dat | bills.dat | waiting.dat"]
+        DoctorMod --> FileSync
+        ApptMod --> FileSync
+        BillingMod --> FileSync
+        ReportMod --> FileSync
+    end
+
+    FileSync -.->|"Loop Back"| Menu
+```
+
 ## Data Design
 
 ### Struct Specifications
