@@ -1,0 +1,5 @@
+*.o
+obj/
+hospital.exe
+hospital
+data/*.dat
