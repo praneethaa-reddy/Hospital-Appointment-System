@@ -1,1 +1,2 @@
 admin:admin123
+receptionist:hospital2026

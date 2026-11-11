@@ -2,4 +2,5 @@
 obj/
 hospital.exe
 hospital
-data/*.dat
+seed_data.exe
+seed_data

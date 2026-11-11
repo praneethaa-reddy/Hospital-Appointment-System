@@ -12,7 +12,7 @@ SRCS    = src/main.c \
 OBJS    = $(patsubst src/%.c, obj/%.o, $(SRCS))
 TARGET  = hospital
 
-.PHONY: all clean
+.PHONY: all clean seed
 
 all: obj $(TARGET)
 
@@ -25,7 +25,12 @@ $(TARGET): $(OBJS)
 obj/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+seed: src/seed_data.c
+	$(CC) $(CFLAGS) -o seed_data src/seed_data.c
+
 clean:
 	if exist obj rmdir /s /q obj
 	if exist $(TARGET).exe del /q $(TARGET).exe
 	if exist $(TARGET) del /q $(TARGET)
+	if exist seed_data.exe del /q seed_data.exe
+	if exist seed_data del /q seed_data
