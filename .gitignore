@@ -4,3 +4,9 @@ hospital.exe
 hospital
 seed_data.exe
 seed_data
+
+# Academic Project Report and Assets (Local Only)
+*.docx
+*.pdf
+assets/
+generate_complete_report.py
